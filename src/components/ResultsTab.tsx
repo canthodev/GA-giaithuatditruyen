@@ -4,6 +4,203 @@ import type { Meeting, Room, ScheduleRun, ScheduledMeeting } from '../lib/supaba
 import { slotToLabel, DAYS } from '../lib/ga';
 import { Trophy, CalendarDays, AlertCircle, RefreshCw, Loader2, TrendingUp, CheckCircle2 } from 'lucide-react';
 
+type GenerationData = { generation: number; best_fitness: number; avg_fitness: number };
+
+const PAD = { top: 24, right: 24, bottom: 48, left: 52 };
+
+function ConvergenceChart({ data }: { data: GenerationData[] }) {
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; gen: number; best: number; avg: number } | null>(null);
+  const W = 800;
+  const H = 260;
+  const chartW = W - PAD.left - PAD.right;
+  const chartH = H - PAD.top - PAD.bottom;
+
+  const maxFitness = 100;
+  const minFitness = Math.max(0, Math.floor(Math.min(...data.map(d => d.avg_fitness)) / 10) * 10 - 10);
+  const fitnessRange = maxFitness - minFitness;
+
+  const xOf = (i: number) => PAD.left + (i / Math.max(data.length - 1, 1)) * chartW;
+  const yOf = (v: number) => PAD.top + chartH - ((v - minFitness) / fitnessRange) * chartH;
+
+  const bestPts  = data.map((d, i) => `${xOf(i)},${yOf(d.best_fitness)}`).join(' ');
+  const avgPts   = data.map((d, i) => `${xOf(i)},${yOf(d.avg_fitness)}`).join(' ');
+  const areaPath = data.map((d, i) => `${xOf(i)},${yOf(d.best_fitness)}`).join(' ')
+    + ` ${xOf(data.length - 1)},${PAD.top + chartH} ${PAD.left},${PAD.top + chartH}`;
+
+  const yTicks = Array.from({ length: 6 }, (_, i) => minFitness + (fitnessRange / 5) * i);
+  const xTickStep = Math.max(1, Math.floor(data.length / 6));
+  const xTicks = data
+    .map((d, i) => ({ i, gen: d.generation }))
+    .filter(({ i }) => i === 0 || i === data.length - 1 || i % xTickStep === 0);
+
+  const last = data[data.length - 1];
+  const first = data[0];
+  const improvement = last.best_fitness - first.best_fitness;
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 pb-3">
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+            <TrendingUp className="w-4 h-4 text-blue-500" />
+          </div>
+          <div>
+            <h2 className="font-bold text-slate-800 leading-none">Quá Trình Hội Tụ</h2>
+            <p className="text-xs text-slate-400 mt-0.5">{data.length} thế hệ — Fitness theo thời gian tiến hóa</p>
+          </div>
+        </div>
+        <div className="flex gap-4 text-xs">
+          <div className="text-center">
+            <div className="font-bold text-blue-600 text-lg leading-none">{last.best_fitness.toFixed(1)}</div>
+            <div className="text-slate-400 mt-0.5">Fitness cuối</div>
+          </div>
+          <div className="text-center">
+            <div className={`font-bold text-lg leading-none ${improvement >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+              {improvement >= 0 ? '+' : ''}{improvement.toFixed(1)}
+            </div>
+            <div className="text-slate-400 mt-0.5">Cải thiện</div>
+          </div>
+          <div className="text-center">
+            <div className="font-bold text-slate-700 text-lg leading-none">{last.avg_fitness.toFixed(1)}</div>
+            <div className="text-slate-400 mt-0.5">TB cuối</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Legend */}
+      <div className="flex gap-4 mb-3 text-xs">
+        <div className="flex items-center gap-1.5">
+          <div className="w-6 h-0.5 bg-blue-500 rounded" />
+          <span className="text-slate-500">Best fitness</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <svg width="24" height="8"><line x1="0" y1="4" x2="24" y2="4" stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="4 3"/></svg>
+          <span className="text-slate-500">Avg fitness</span>
+        </div>
+      </div>
+
+      {/* SVG Chart */}
+      <div className="relative w-full" style={{ paddingBottom: `${(H / W) * 100}%` }}>
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          className="absolute inset-0 w-full h-full overflow-visible"
+          onMouseLeave={() => setTooltip(null)}
+        >
+          <defs>
+            <linearGradient id="cgBestGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.02" />
+            </linearGradient>
+            <clipPath id="cgClip">
+              <rect x={PAD.left} y={PAD.top} width={chartW} height={chartH} />
+            </clipPath>
+          </defs>
+
+          {/* Y grid lines + labels */}
+          {yTicks.map(v => (
+            <g key={v}>
+              <line
+                x1={PAD.left} y1={yOf(v)} x2={PAD.left + chartW} y2={yOf(v)}
+                stroke="#e2e8f0" strokeWidth="1"
+              />
+              <text x={PAD.left - 8} y={yOf(v) + 4} textAnchor="end" fontSize="11" fill="#94a3b8">
+                {v.toFixed(0)}
+              </text>
+            </g>
+          ))}
+
+          {/* X grid lines + labels */}
+          {xTicks.map(({ i, gen }) => (
+            <g key={i}>
+              <line
+                x1={xOf(i)} y1={PAD.top} x2={xOf(i)} y2={PAD.top + chartH}
+                stroke="#f1f5f9" strokeWidth="1"
+              />
+              <text x={xOf(i)} y={PAD.top + chartH + 16} textAnchor="middle" fontSize="11" fill="#94a3b8">
+                {gen}
+              </text>
+            </g>
+          ))}
+
+          {/* Axes */}
+          <line x1={PAD.left} y1={PAD.top} x2={PAD.left} y2={PAD.top + chartH} stroke="#cbd5e1" strokeWidth="1" />
+          <line x1={PAD.left} y1={PAD.top + chartH} x2={PAD.left + chartW} y2={PAD.top + chartH} stroke="#cbd5e1" strokeWidth="1" />
+
+          {/* Axis labels */}
+          <text x={PAD.left + chartW / 2} y={H - 2} textAnchor="middle" fontSize="11" fill="#64748b">Thế hệ</text>
+          <text
+            x={14} y={PAD.top + chartH / 2}
+            textAnchor="middle" fontSize="11" fill="#64748b"
+            transform={`rotate(-90, 14, ${PAD.top + chartH / 2})`}
+          >Fitness</text>
+
+          {/* Area fill under best */}
+          <polygon points={areaPath} fill="url(#cgBestGrad)" clipPath="url(#cgClip)" />
+
+          {/* Avg line (dashed) */}
+          <polyline
+            points={avgPts}
+            fill="none" stroke="#94a3b8" strokeWidth="1.5"
+            strokeDasharray="5 4" strokeLinejoin="round"
+            clipPath="url(#cgClip)"
+          />
+
+          {/* Best line */}
+          <polyline
+            points={bestPts}
+            fill="none" stroke="#3b82f6" strokeWidth="2.5"
+            strokeLinejoin="round" strokeLinecap="round"
+            clipPath="url(#cgClip)"
+          />
+
+          {/* Final point highlight */}
+          <circle cx={xOf(data.length - 1)} cy={yOf(last.best_fitness)} r="5" fill="#3b82f6" />
+          <circle cx={xOf(data.length - 1)} cy={yOf(last.best_fitness)} r="9" fill="#3b82f6" fillOpacity="0.15" />
+
+          {/* Invisible hit areas for tooltip */}
+          {data.map((d, i) => (
+            <rect
+              key={i}
+              x={xOf(i) - (chartW / data.length) / 2}
+              y={PAD.top}
+              width={chartW / data.length}
+              height={chartH}
+              fill="transparent"
+              onMouseEnter={e => {
+                const rect = (e.currentTarget.closest('svg') as SVGSVGElement).getBoundingClientRect();
+                setTooltip({
+                  x: xOf(i),
+                  y: yOf(d.best_fitness),
+                  gen: d.generation,
+                  best: d.best_fitness,
+                  avg: d.avg_fitness,
+                });
+              }}
+            />
+          ))}
+
+          {/* Tooltip */}
+          {tooltip && (() => {
+            const tx = Math.min(tooltip.x + 12, W - 130);
+            const ty = Math.max(tooltip.y - 60, PAD.top);
+            return (
+              <g>
+                <line x1={tooltip.x} y1={PAD.top} x2={tooltip.x} y2={PAD.top + chartH} stroke="#3b82f6" strokeWidth="1" strokeDasharray="3 3" opacity="0.5" />
+                <circle cx={tooltip.x} cy={tooltip.y} r="4" fill="#3b82f6" />
+                <rect x={tx} y={ty} width="120" height="58" rx="6" fill="#1e293b" opacity="0.92" />
+                <text x={tx + 10} y={ty + 16} fontSize="11" fill="#94a3b8">Thế hệ {tooltip.gen}</text>
+                <text x={tx + 10} y={ty + 32} fontSize="12" fill="#60a5fa" fontWeight="600">Best: {tooltip.best.toFixed(2)}</text>
+                <text x={tx + 10} y={ty + 48} fontSize="12" fill="#94a3b8">Avg:  {tooltip.avg.toFixed(2)}</text>
+              </g>
+            );
+          })()}
+        </svg>
+      </div>
+    </div>
+  );
+}
+
 type FullScheduledMeeting = ScheduledMeeting & {
   meeting: Meeting;
   room: Room;
@@ -172,44 +369,9 @@ export default function ResultsTab({ latestRunId }: Props) {
             </div>
           </div>
 
-          {/* Fitness convergence mini chart */}
+          {/* Fitness convergence chart */}
           {selectedRun.generations_data.length > 0 && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-              <div className="flex items-center gap-2 mb-4">
-                <TrendingUp className="w-4 h-4 text-blue-500" />
-                <h2 className="font-bold text-slate-800">Quá Trình Hội Tụ</h2>
-                <span className="text-xs text-slate-400 ml-auto">
-                  {selectedRun.generations_data[0]?.best_fitness.toFixed(1)} → {selectedRun.generations_data[selectedRun.generations_data.length - 1]?.best_fitness.toFixed(1)}{' '}
-                  (+{(selectedRun.generations_data[selectedRun.generations_data.length - 1]?.best_fitness - selectedRun.generations_data[0]?.best_fitness).toFixed(1)})
-                </span>
-              </div>
-              <div className="h-24">
-                <svg width="100%" height="96" preserveAspectRatio="none" className="overflow-visible">
-                  {(() => {
-                    const data = selectedRun.generations_data;
-                    const areaBottom = data.map((d, i) => {
-                      const x = (i / Math.max(data.length - 1, 1)) * 100;
-                      const y = 96 - (d.best_fitness / 100) * 96;
-                      return `${x}%,${y}`;
-                    });
-                    const pts = areaBottom.join(' ');
-                    const areaPath = `${areaBottom.join(' ')} 100%,96 0%,96`;
-                    return (
-                      <>
-                        <polygon points={areaPath} fill="url(#gradFitness)" opacity="0.3" />
-                        <polyline points={pts} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinejoin="round" />
-                        <defs>
-                          <linearGradient id="gradFitness" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#3b82f6" />
-                            <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
-                          </linearGradient>
-                        </defs>
-                      </>
-                    );
-                  })()}
-                </svg>
-              </div>
-            </div>
+            <ConvergenceChart data={selectedRun.generations_data} />
           )}
 
           {/* Room Legend */}
