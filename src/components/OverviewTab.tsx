@@ -3,10 +3,7 @@ import {
   Target, Building2, Users, Calendar, AlertTriangle, CheckCircle,
   Dna, Shuffle, GitMerge, Zap, Trophy, ArrowRight, ArrowDown,
   TrendingUp, Clock, BarChart2, Search, Cpu, ChevronDown, ChevronUp,
-  FileDown, Loader2,
 } from 'lucide-react';
-import { exportOverviewPdf } from '../lib/exportPdf';
-import { exportOverviewDocx } from '../lib/exportDocx';
 
 // ─── Section 1: Problem ────────────────────────────────────────────────────────
 
@@ -745,17 +742,6 @@ const SECTIONS: { id: ActiveSection; label: string; icon: React.ReactNode }[] = 
 
 export default function OverviewTab() {
   const [active, setActive] = useState<ActiveSection>('problem');
-  const [exporting, setExporting] = useState<'pdf' | 'docx' | null>(null);
-
-  async function handleExport(type: 'pdf' | 'docx') {
-    setExporting(type);
-    try {
-      if (type === 'pdf') await exportOverviewPdf();
-      else await exportOverviewDocx();
-    } finally {
-      setExporting(null);
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -779,31 +765,6 @@ export default function OverviewTab() {
           ))}
         </div>
 
-        {/* Export buttons */}
-        <div className="flex gap-1.5 ml-1">
-          <button
-            onClick={() => handleExport('docx')}
-            disabled={exporting !== null}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-400 text-white text-sm font-semibold transition-colors shadow-sm whitespace-nowrap"
-            title="Xuất tài liệu Word (.docx) — Tiếng Việt đầy đủ"
-          >
-            {exporting === 'docx'
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Đang xuất...</>
-              : <><FileDown className="w-4 h-4" /> Xuất DOCX</>
-            }
-          </button>
-          <button
-            onClick={() => handleExport('pdf')}
-            disabled={exporting !== null}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:bg-blue-400 text-white text-sm font-semibold transition-colors shadow-sm whitespace-nowrap"
-            title="Xuất tài liệu PDF"
-          >
-            {exporting === 'pdf'
-              ? <><Loader2 className="w-4 h-4 animate-spin" /> Đang xuất...</>
-              : <><FileDown className="w-4 h-4" /> Xuất PDF</>
-            }
-          </button>
-        </div>
       </div>
 
       {/* Section content */}
