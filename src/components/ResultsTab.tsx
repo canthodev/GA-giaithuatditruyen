@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import type { Meeting, Room, ScheduleRun, ScheduledMeeting } from '../lib/supabase';
+import type { Meeting, Room, ScheduleRun, ScheduledMeeting, Participant } from '../lib/supabase';
 import { slotToLabel, DAYS } from '../lib/ga';
-import { Trophy, CalendarDays, AlertCircle, RefreshCw, Loader2, TrendingUp, CheckCircle2 } from 'lucide-react';
+import { exportScheduleExcel } from '../lib/exportExcel';
+import { Trophy, CalendarDays, AlertCircle, RefreshCw, Loader2, TrendingUp, CheckCircle2, FileSpreadsheet } from 'lucide-react';
 
 type GenerationData = { generation: number; best_fitness: number; avg_fitness: number };
 
@@ -224,11 +225,14 @@ export default function ResultsTab({ latestRunId }: Props) {
   const [selectedRun, setSelectedRun] = useState<ScheduleRun | null>(null);
   const [scheduledMeetings, setScheduledMeetings] = useState<FullScheduledMeeting[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     loadRuns();
     loadRooms();
+    loadParticipants();
   }, []);
 
   useEffect(() => {
@@ -246,6 +250,21 @@ export default function ResultsTab({ latestRunId }: Props) {
   async function loadRooms() {
     const { data } = await supabase.from('rooms').select('*');
     if (data) setRooms(data as Room[]);
+  }
+
+  async function loadParticipants() {
+    const { data } = await supabase.from('participants').select('*');
+    if (data) setParticipants(data as Participant[]);
+  }
+
+  async function handleExportExcel() {
+    if (!selectedRun) return;
+    setExporting(true);
+    try {
+      exportScheduleExcel(scheduledMeetings, participants, selectedRun.run_name);
+    } finally {
+      setExporting(false);
+    }
   }
 
   async function loadRuns() {
@@ -335,6 +354,18 @@ export default function ResultsTab({ latestRunId }: Props) {
           >
             <RefreshCw className="w-4 h-4 text-slate-500" />
           </button>
+          {selectedRun && scheduledMeetings.length > 0 && (
+            <button
+              onClick={handleExportExcel}
+              disabled={exporting}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-400 text-white text-sm font-semibold transition-colors shadow-sm whitespace-nowrap"
+            >
+              {exporting
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> Đang xuất...</>
+                : <><FileSpreadsheet className="w-4 h-4" /> Xuất Excel</>
+              }
+            </button>
+          )}
         </div>
       </div>
 
