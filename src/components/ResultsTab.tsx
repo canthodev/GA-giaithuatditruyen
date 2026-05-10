@@ -288,23 +288,21 @@ export default function ResultsTab({ latestRunId }: Props) {
     setLoading(false);
   }
 
-  // Build calendar grid: days x time slots, each slot holds all meetings that occupy it
+  // Build calendar grid: days x 16 time slots per day (SLOTS_PER_DAY = 16)
   const calendarGrid = DAYS.map((day, dayIdx) => {
-    const dayStart = dayIdx * 8;
-    // slots[slotIdx] = list of meetings that START at that slot
-    const startSlots: FullScheduledMeeting[][] = Array.from({ length: 8 }, () => []);
-    // occupied[slotIdx] = set of meetings covering that slot (including multi-slot spans)
-    const occupied: Set<string>[] = Array.from({ length: 8 }, () => new Set());
+    const dayStart = dayIdx * SLOTS_PER_DAY;
+    const startSlots: FullScheduledMeeting[][] = Array.from({ length: SLOTS_PER_DAY }, () => []);
+    const occupiedSets: Set<string>[] = Array.from({ length: SLOTS_PER_DAY }, () => new Set());
     scheduledMeetings.forEach(sm => {
-      if (sm.time_slot >= dayStart && sm.time_slot < dayStart + 8) {
+      if (sm.time_slot >= dayStart && sm.time_slot < dayStart + SLOTS_PER_DAY) {
         const slotIdx = sm.time_slot - dayStart;
         startSlots[slotIdx].push(sm);
-        for (let s = 0; s < sm.meeting.duration_slots && slotIdx + s < 8; s++) {
-          occupied[slotIdx + s].add(sm.id);
+        for (let s = 0; s < sm.meeting.duration_slots && slotIdx + s < SLOTS_PER_DAY; s++) {
+          occupiedSets[slotIdx + s].add(sm.id);
         }
       }
     });
-    return { day, startSlots, occupied };
+    return { day, startSlots, occupiedSets };
   });
 
   const roomColorMap: Record<string, typeof ROOM_COLORS[0]> = {};
@@ -445,14 +443,14 @@ export default function ResultsTab({ latestRunId }: Props) {
                   {slotTimeLabels.map((time, slotIdx) => (
                     <tr key={slotIdx} className={slotIdx === 7 ? 'border-b-2 border-slate-300' : ''}>
                       <td className="px-3 py-2 font-mono text-slate-400 border-b border-slate-100 align-top whitespace-nowrap">{time}</td>
-                      {calendarGrid.map(({ day, startSlots, occupied }) => {
-                        const starters = startSlots[slotIdx];
-                        const continuedIds = occupied[slotIdx];
+                      {calendarGrid.map(({ day, startSlots, occupiedSets }) => {
+                        const starters = startSlots[slotIdx] ?? [];
+                        const continuedIds = occupiedSets[slotIdx] ?? new Set<string>();
                         // meetings that are spanning but didn't start this slot
                         const continued = [...continuedIds]
                           .map(id => scheduledMeetings.find(x => x.id === id))
                           .filter((sm): sm is FullScheduledMeeting =>
-                            !!sm && sm.time_slot % 8 !== slotIdx
+                            !!sm && (sm.time_slot - Math.floor(sm.time_slot / SLOTS_PER_DAY) * SLOTS_PER_DAY) !== slotIdx
                           );
                         return (
                           <td key={day} className="px-1 py-1 border-b border-l border-slate-100 align-top min-w-28">
