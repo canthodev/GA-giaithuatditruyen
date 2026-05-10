@@ -455,10 +455,10 @@ export default function ResultsTab({ latestRunId }: Props) {
                                 <div className={`font-semibold ${c?.text} leading-tight truncate`} title={sm.meeting.title}>
                                   {sm.meeting.title}
                                 </div>
+                                <div className={`font-mono text-[10px] mt-0.5 ${c?.text} opacity-80`}>
+                                  {slotTimeLabels[sm.time_slot % 8]} – {slotEndLabels[(sm.time_slot % 8) + sm.meeting.duration_slots - 1] ?? '?'}
+                                </div>
                                 <div className="text-slate-500 text-[10px] mt-0.5 truncate">{sm.room.name}</div>
-                                {sm.meeting.duration_slots > 1 && (
-                                  <div className="text-slate-400 text-[10px]">{sm.meeting.duration_slots * 30} phút</div>
-                                )}
                                 {sm.conflicts > 0 && (
                                   <AlertCircle className="w-3 h-3 text-red-500 mt-0.5" />
                                 )}
