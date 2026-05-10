@@ -288,21 +288,17 @@ export default function ResultsTab({ latestRunId }: Props) {
     setLoading(false);
   }
 
-  // Build calendar grid: days x 16 time slots per day (SLOTS_PER_DAY = 16)
+  // Build calendar grid: days x time slots
   const calendarGrid = DAYS.map((day, dayIdx) => {
-    const dayStart = dayIdx * SLOTS_PER_DAY;
-    const startSlots: FullScheduledMeeting[][] = Array.from({ length: SLOTS_PER_DAY }, () => []);
-    const occupiedSets: Set<string>[] = Array.from({ length: SLOTS_PER_DAY }, () => new Set());
+    const dayStart = dayIdx * 8;
+    const slots: (FullScheduledMeeting | null)[] = Array(8).fill(null);
     scheduledMeetings.forEach(sm => {
-      if (sm.time_slot >= dayStart && sm.time_slot < dayStart + SLOTS_PER_DAY) {
+      if (sm.time_slot >= dayStart && sm.time_slot < dayStart + 8) {
         const slotIdx = sm.time_slot - dayStart;
-        startSlots[slotIdx].push(sm);
-        for (let s = 0; s < sm.meeting.duration_slots && slotIdx + s < SLOTS_PER_DAY; s++) {
-          occupiedSets[slotIdx + s].add(sm.id);
-        }
+        slots[slotIdx] = sm;
       }
     });
-    return { day, startSlots, occupiedSets };
+    return { day, slots };
   });
 
   const roomColorMap: Record<string, typeof ROOM_COLORS[0]> = {};
@@ -443,44 +439,31 @@ export default function ResultsTab({ latestRunId }: Props) {
                   {slotTimeLabels.map((time, slotIdx) => (
                     <tr key={slotIdx} className={slotIdx === 7 ? 'border-b-2 border-slate-300' : ''}>
                       <td className="px-3 py-2 font-mono text-slate-400 border-b border-slate-100 align-top whitespace-nowrap">{time}</td>
-                      {calendarGrid.map(({ day, startSlots, occupiedSets }) => {
-                        const starters = startSlots[slotIdx] ?? [];
-                        const continuedIds = occupiedSets[slotIdx] ?? new Set<string>();
-                        // meetings that are spanning but didn't start this slot
-                        const continued = [...continuedIds]
-                          .map(id => scheduledMeetings.find(x => x.id === id))
-                          .filter((sm): sm is FullScheduledMeeting =>
-                            !!sm && (sm.time_slot - Math.floor(sm.time_slot / SLOTS_PER_DAY) * SLOTS_PER_DAY) !== slotIdx
-                          );
+                      {calendarGrid.map(({ day, slots }) => {
+                        const sm = slots[slotIdx];
+                        const isStart = sm && sm.time_slot % 8 === slotIdx;
+                        const isContinued = sm && !isStart;
+                        const c = sm ? roomColorMap[sm.room_id] : null;
                         return (
                           <td key={day} className="px-1 py-1 border-b border-l border-slate-100 align-top min-w-28">
-                            <div className="flex flex-col gap-1">
-                              {starters.map(sm => {
-                                const c = roomColorMap[sm.room_id];
-                                return (
-                                  <div key={sm.id} className={`rounded-lg px-2 py-1.5 border ${c?.bg} ${c?.border} cursor-default`}>
-                                    <div className={`font-semibold ${c?.text} leading-tight truncate`} title={sm.meeting.title}>
-                                      {sm.meeting.title}
-                                    </div>
-                                    <div className="text-slate-500 text-[10px] mt-0.5 truncate">{sm.room.name}</div>
-                                    {sm.meeting.duration_slots > 1 && (
-                                      <div className="text-slate-400 text-[10px]">{sm.meeting.duration_slots * 30} phút</div>
-                                    )}
-                                    {sm.conflicts > 0 && (
-                                      <AlertCircle className="w-3 h-3 text-red-500 mt-0.5" />
-                                    )}
-                                  </div>
-                                );
-                              })}
-                              {continued.map(sm => {
-                                const c = roomColorMap[sm.room_id];
-                                return (
-                                  <div key={sm.id} className={`rounded-b-lg px-2 py-1 border-x border-b ${c?.bg} ${c?.border} opacity-60`}>
-                                    <div className="text-[10px] text-slate-400 italic truncate">{sm.meeting.title} (tiếp...)</div>
-                                  </div>
-                                );
-                              })}
-                            </div>
+                            {sm && isStart ? (
+                              <div className={`rounded-lg px-2 py-1.5 border ${c?.bg} ${c?.border} cursor-default`}>
+                                <div className={`font-semibold ${c?.text} leading-tight truncate`} title={sm.meeting.title}>
+                                  {sm.meeting.title}
+                                </div>
+                                <div className="text-slate-500 text-[10px] mt-0.5 truncate">{sm.room.name}</div>
+                                {sm.meeting.duration_slots > 1 && (
+                                  <div className="text-slate-400 text-[10px]">{sm.meeting.duration_slots * 30} phút</div>
+                                )}
+                                {sm.conflicts > 0 && (
+                                  <AlertCircle className="w-3 h-3 text-red-500 mt-0.5" />
+                                )}
+                              </div>
+                            ) : sm && isContinued ? (
+                              <div className={`rounded-b-lg px-2 py-1 border-x border-b ${c?.bg} ${c?.border} opacity-60`}>
+                                <div className="text-[10px] text-slate-400 italic">tiếp tục...</div>
+                              </div>
+                            ) : null}
                           </td>
                         );
                       })}

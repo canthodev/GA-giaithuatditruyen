@@ -1,8 +1,8 @@
 import type { Meeting, Participant, Room, GAParameters, GenerationData } from './supabase';
 
-// 5 working days x 16 slots per day (08:00-12:00 + 13:30-17:30 in 30-min blocks = 16 slots)
-export const TOTAL_SLOTS = 80;
-export const SLOTS_PER_DAY = 16;
+// 5 working days x 8 slots per day (08:00-12:00, 13:30-17:30 in 30-min blocks)
+export const TOTAL_SLOTS = 40;
+export const SLOTS_PER_DAY = 8;
 export const DAYS = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu'];
 export const SLOT_TIMES = [
   '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
