@@ -168,6 +168,71 @@ function buildParticipantSheet(
   return ws;
 }
 
+// ── Sheet 3: Chronological meeting list Mon→Fri ───────────────────────────────
+function buildChronologicalSheet(
+  scheduledMeetings: FullScheduledMeeting[],
+): XLSX.WorkSheet {
+  const aoa: (string | number)[][] = [];
+
+  aoa.push([
+    'STT',
+    'Thứ',
+    'Giờ bắt đầu',
+    'Giờ kết thúc',
+    'Thời lượng (phút)',
+    'Tên cuộc họp',
+    'Phòng họp',
+    'Số người tham dự',
+    'Ưu tiên',
+    'Thiết bị yêu cầu',
+    'Xung đột',
+  ]);
+
+  const sorted = [...scheduledMeetings].sort((a, b) => a.time_slot - b.time_slot);
+
+  sorted.forEach((sm, idx) => {
+    const dayIdx = Math.floor(sm.time_slot / SLOTS_PER_DAY);
+    const slotIdx = sm.time_slot % SLOTS_PER_DAY;
+    const start = SLOT_TIMES[slotIdx] ?? '';
+    const end = endTime(sm.time_slot, sm.meeting.duration_slots);
+    const equipment = sm.meeting.required_equipment
+      .map(e => EQUIPMENT_LABELS[e] ?? e)
+      .join(', ') || '—';
+
+    aoa.push([
+      idx + 1,
+      DAYS[dayIdx] ?? '',
+      start,
+      end,
+      sm.meeting.duration_slots * 30,
+      sm.meeting.title,
+      sm.room.name,
+      sm.meeting.participant_ids.length,
+      PRIORITY_LABELS[sm.meeting.priority] ?? String(sm.meeting.priority),
+      equipment,
+      sm.conflicts === 0 ? 'Không' : `${sm.conflicts} xung đột`,
+    ]);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  ws['!cols'] = [
+    { wch: 6 },  // STT
+    { wch: 12 }, // Thứ
+    { wch: 14 }, // Giờ bắt đầu
+    { wch: 14 }, // Giờ kết thúc
+    { wch: 20 }, // Thời lượng
+    { wch: 34 }, // Tên cuộc họp
+    { wch: 20 }, // Phòng họp
+    { wch: 18 }, // Số người
+    { wch: 14 }, // Ưu tiên
+    { wch: 30 }, // Thiết bị
+    { wch: 14 }, // Xung đột
+  ];
+
+  return ws;
+}
+
 // ── Public export function ────────────────────────────────────────────────────
 export function exportScheduleExcel(
   scheduledMeetings: FullScheduledMeeting[],
@@ -181,6 +246,9 @@ export function exportScheduleExcel(
 
   const participantSheet = buildParticipantSheet(scheduledMeetings, participants);
   XLSX.utils.book_append_sheet(wb, participantSheet, 'Lịch Theo Thành Viên');
+
+  const chronoSheet = buildChronologicalSheet(scheduledMeetings);
+  XLSX.utils.book_append_sheet(wb, chronoSheet, 'Chi Tiết Theo Thời Gian');
 
   const fileName = `lich-hop-${runName.replace(/\s+/g, '-').toLowerCase()}.xlsx`;
   XLSX.writeFile(wb, fileName);
