@@ -313,6 +313,10 @@ export default function ResultsTab({ latestRunId }: Props) {
     '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
     '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00',
   ];
+  const slotEndLabels = [
+    '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00',
+    '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
+  ];
 
   if (!selectedRun && runs.length === 0) {
     return (
@@ -487,7 +491,7 @@ export default function ResultsTab({ latestRunId }: Props) {
                   const { day, time } = slotToLabel(sm.time_slot);
                   const c = roomColorMap[sm.room_id];
                   const endSlotIdx = (sm.time_slot % 8) + sm.meeting.duration_slots - 1;
-                  const endTime = slotTimeLabels[endSlotIdx] ?? '?';
+                  const endTime = slotEndLabels[endSlotIdx] ?? '?';
                   return (
                     <div key={sm.id} className="px-6 py-4 flex items-start gap-4 hover:bg-slate-50 transition-colors">
                       <div className={`mt-1.5 w-3 h-3 rounded-full flex-shrink-0 ${c?.bg?.replace('-100', '-400')}`} />
