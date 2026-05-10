@@ -513,6 +513,22 @@ export default function ResultsTab({ latestRunId }: Props) {
                           <span>⏰ {time} – {endTime}</span>
                           <span className={`px-2 py-0.5 rounded-full text-xs font-medium border ${c?.bg} ${c?.text} ${c?.border}`}>{sm.room.name}</span>
                         </div>
+                        {sm.meeting.participant_ids.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
+                            {sm.meeting.participant_ids.map(pid => {
+                              const p = participants.find(x => x.id === pid);
+                              if (!p) return null;
+                              return (
+                                <span key={pid} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-xs font-medium border border-slate-200">
+                                  <span className="w-4 h-4 rounded-full bg-slate-300 flex items-center justify-center text-slate-600 font-bold text-[10px] flex-shrink-0">
+                                    {p.name.charAt(0).toUpperCase()}
+                                  </span>
+                                  {p.name}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
